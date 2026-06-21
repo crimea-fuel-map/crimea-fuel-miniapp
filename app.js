@@ -8,9 +8,18 @@ const urlParams = new URLSearchParams(window.location.search);
 const storageKey = "crimea-fuel-point";
 const historyMode = urlParams.get("mode") === "history";
 const stationsMode = urlParams.get("mode") === "stations";
-const requestedPoint = L.latLng(
-  Number(urlParams.get("lat")),
-  Number(urlParams.get("lon")),
+
+function validCrimeaPoint(latitude, longitude) {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const point = L.latLng(lat, lon);
+  return CRIMEA_BOUNDS.contains(point) ? point : null;
+}
+
+const requestedPoint = validCrimeaPoint(
+  urlParams.get("lat"),
+  urlParams.get("lon"),
 );
 let storedPoint;
 try {
@@ -18,18 +27,12 @@ try {
 } catch {
   storedPoint = null;
 }
-const savedPoint = L.latLng(
-  Number(storedPoint?.latitude),
-  Number(storedPoint?.longitude),
+const savedPoint = validCrimeaPoint(
+  storedPoint?.latitude,
+  storedPoint?.longitude,
 );
-const hasRequestedPoint =
-  Number.isFinite(requestedPoint.lat) &&
-  Number.isFinite(requestedPoint.lng) &&
-  CRIMEA_BOUNDS.contains(requestedPoint);
-const hasSavedPoint =
-  Number.isFinite(savedPoint.lat) &&
-  Number.isFinite(savedPoint.lng) &&
-  CRIMEA_BOUNDS.contains(savedPoint);
+const hasRequestedPoint = Boolean(requestedPoint);
+const hasSavedPoint = Boolean(savedPoint);
 const INITIAL_POINT = hasRequestedPoint
   ? requestedPoint
   : (hasSavedPoint ? savedPoint : DEFAULT_POINT);
