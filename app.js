@@ -5,25 +5,100 @@ const CRIMEA_BOUNDS = L.latLngBounds(
 const DEFAULT_POINT = L.latLng(44.9521, 34.1024);
 const telegram = window.Telegram?.WebApp;
 const urlParams = new URLSearchParams(window.location.search);
+const storageKey = "crimea-fuel-point";
 const historyMode = urlParams.get("mode") === "history";
+const stationsMode = urlParams.get("mode") === "stations";
+const requestedPoint = L.latLng(
+  Number(urlParams.get("lat")),
+  Number(urlParams.get("lon")),
+);
+let storedPoint;
+try {
+  storedPoint = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+} catch {
+  storedPoint = null;
+}
+const savedPoint = L.latLng(
+  Number(storedPoint?.latitude),
+  Number(storedPoint?.longitude),
+);
+const hasRequestedPoint =
+  Number.isFinite(requestedPoint.lat) &&
+  Number.isFinite(requestedPoint.lng) &&
+  CRIMEA_BOUNDS.contains(requestedPoint);
+const hasSavedPoint =
+  Number.isFinite(savedPoint.lat) &&
+  Number.isFinite(savedPoint.lng) &&
+  CRIMEA_BOUNDS.contains(savedPoint);
+const INITIAL_POINT = hasRequestedPoint
+  ? requestedPoint
+  : (hasSavedPoint ? savedPoint : DEFAULT_POINT);
+const INITIAL_NAME = hasRequestedPoint
+  ? (urlParams.get("label") || "Последняя выбранная точка").slice(0, 80)
+  : (hasSavedPoint
+    ? String(storedPoint.label || "Последняя выбранная точка").slice(0, 80)
+    : "Симферополь");
 
 telegram?.ready();
 telegram?.expand();
 L.Browser.any3d = false;
 
 const map = L.map("map", {
-  center: DEFAULT_POINT,
+  center: INITIAL_POINT,
   zoom: 10,
   minZoom: 7,
   maxZoom: 18,
   maxBounds: CRIMEA_BOUNDS.pad(0.25),
   zoomControl: true,
+  attributionControl: false,
 });
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "© OpenStreetMap",
-}).addTo(map);
+const tileProviders = [
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
+];
+let activeTileLayer;
+let tileProviderIndex = 0;
+let tileErrors = 0;
+
+function loadTileProvider(index) {
+  if (activeTileLayer) map.removeLayer(activeTileLayer);
+  tileProviderIndex = Math.min(index, tileProviders.length - 1);
+  tileErrors = 0;
+  activeTileLayer = L.tileLayer(tileProviders[tileProviderIndex], {
+    bounds: CRIMEA_BOUNDS.pad(0.08),
+    maxZoom: 19,
+    noWrap: true,
+    keepBuffer: 1,
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    detectRetina: false,
+  });
+  activeTileLayer.on("tileerror", () => {
+    tileErrors += 1;
+    if (tileErrors >= 3 && tileProviderIndex + 1 < tileProviders.length) {
+      loadTileProvider(tileProviderIndex + 1);
+    }
+  });
+  activeTileLayer.on("load", () => {
+    window.clearTimeout(window.__fuelTileFallback);
+  });
+  activeTileLayer.addTo(map);
+  window.clearTimeout(window.__fuelTileFallback);
+  window.__fuelTileFallback = window.setTimeout(() => {
+    if (
+      !document.querySelector(".leaflet-tile-loaded") &&
+      tileProviderIndex + 1 < tileProviders.length
+    ) {
+      loadTileProvider(tileProviderIndex + 1);
+    }
+  }, 5000);
+}
+
+loadTileProvider(0);
+window.setTimeout(() => map.invalidateSize(true), 250);
+window.addEventListener("resize", () => map.invalidateSize(false));
 
 const markerIcon = L.divIcon({
   className: "",
@@ -32,7 +107,7 @@ const markerIcon = L.divIcon({
   iconAnchor: [15, 38],
 });
 
-const marker = L.marker(DEFAULT_POINT, {
+const marker = L.marker(INITIAL_POINT, {
   draggable: true,
   icon: markerIcon,
 }).addTo(map);
@@ -48,11 +123,15 @@ const placeLabel = document.querySelector("#placeLabel");
 const coordinatesLabel = document.querySelector("#coordinatesLabel");
 const mapTip = document.querySelector("#mapTip");
 
-let selectedPoint = DEFAULT_POINT;
-let selectedName = "Симферополь";
+let selectedPoint = INITIAL_POINT;
+let selectedName = INITIAL_NAME;
 let searchTimer;
 
-function decodeHistoryPoints() {
+placeLabel.textContent = selectedName;
+coordinatesLabel.textContent =
+  `${selectedPoint.lat.toFixed(6)}, ${selectedPoint.lng.toFixed(6)}`;
+
+function decodePoints() {
   const encoded = urlParams.get("points");
   if (!encoded) return [];
   try {
@@ -72,7 +151,7 @@ function decodeHistoryPoints() {
 }
 
 function initializeHistoryMode() {
-  const points = decodeHistoryPoints().filter((point) =>
+  const points = decodePoints().filter((point) =>
     Number.isFinite(Number(point.latitude)) &&
     Number.isFinite(Number(point.longitude))
   );
@@ -108,6 +187,69 @@ function initializeHistoryMode() {
   return true;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function initializeStationsMode() {
+  if (!stationsMode) return false;
+  const points = decodePoints()
+    .map((point) => Array.isArray(point)
+      ? {
+          latitude: point[0],
+          longitude: point[1],
+          title: point[2],
+          address: point[3],
+          fuels: point[4],
+          actualAt: point[5],
+        }
+      : point)
+    .filter((point) =>
+    Number.isFinite(Number(point.latitude)) &&
+    Number.isFinite(Number(point.longitude))
+  );
+  document.body.classList.add("stations-mode");
+  document.querySelector("h1").textContent = "АЗС с топливом";
+  document.querySelector(".eyebrow").textContent =
+    `НАЙДЕНО АЗС: ${points.length}`;
+  map.removeLayer(marker);
+  const bounds = [];
+  for (const point of points) {
+    const position = L.latLng(point.latitude, point.longitude);
+    bounds.push(position);
+    const fuels = Array.isArray(point.fuels) ? point.fuels : [];
+    const markerLabel = fuels
+      .map((fuel) => String(fuel).replace("АИ-", ""))
+      .join(" · ");
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="fuel-marker">${escapeHtml(markerLabel || "АЗС")}</div>`,
+      iconSize: [86, 34],
+      iconAnchor: [43, 17],
+    });
+    const details = [
+      `<strong>${escapeHtml(point.title || "АЗС")}</strong>`,
+      escapeHtml(point.address || ""),
+      `<b>Топливо:</b> ${escapeHtml(fuels.join(", "))}`,
+      point.actualAt
+        ? `<b>Актуально:</b> ${escapeHtml(point.actualAt)}`
+        : "",
+    ].filter(Boolean).join("<br>");
+    L.marker(position, { icon }).bindPopup(details).addTo(map);
+  }
+  if (bounds.length === 1) map.setView(bounds[0], 14);
+  if (bounds.length > 1) map.fitBounds(bounds, { padding: [44, 44] });
+  placeLabel.textContent = "Найденные АЗС";
+  coordinatesLabel.textContent = `${points.length} точек на карте`;
+  mapTip.textContent = "Нажмите на АЗС, чтобы увидеть топливо";
+  return true;
+}
+
 function withinCrimea(point) {
   return CRIMEA_BOUNDS.contains(point);
 }
@@ -132,13 +274,13 @@ function setPoint(point, name = "Выбранная точка", moveMap = true)
 }
 
 map.on("click", (event) => {
-  if (historyMode) return;
+  if (historyMode || stationsMode) return;
   setPoint(event.latlng);
   hideResults();
 });
 
 marker.on("dragend", () => {
-  if (historyMode) return;
+  if (historyMode || stationsMode) return;
   const point = marker.getLatLng();
   if (!setPoint(point, "Выбранная точка", false)) {
     marker.setLatLng(selectedPoint);
@@ -241,19 +383,24 @@ locateButton.addEventListener("click", () => {
 });
 
 confirmButton.addEventListener("click", () => {
-  const payload = JSON.stringify({
+  const selected = {
     type: "manual_location",
     latitude: Number(selectedPoint.lat.toFixed(7)),
     longitude: Number(selectedPoint.lng.toFixed(7)),
     label: selectedName.slice(0, 120),
-  });
-  if (telegram?.sendData) {
+  };
+  window.localStorage.setItem(storageKey, JSON.stringify(selected));
+  const payload = JSON.stringify(selected);
+  if (telegram?.sendData && telegram.initData) {
     confirmButton.disabled = true;
+    confirmButton.lastChild.textContent = " Отправляю...";
     telegram.sendData(payload);
-    window.setTimeout(() => telegram.close(), 250);
+    window.setTimeout(() => telegram.close(), 600);
     return;
   }
-  window.alert(`Выбрано: ${selectedPoint.lat.toFixed(6)}, ${selectedPoint.lng.toFixed(6)}`);
+  window.alert(
+    "Точка сохранена на карте. Чтобы передать её боту, откройте карту кнопкой «Вручную на карте» внутри Telegram.",
+  );
 });
 
 document.addEventListener("keydown", (event) => {
@@ -261,11 +408,17 @@ document.addEventListener("keydown", (event) => {
 });
 
 initializeHistoryMode();
+initializeStationsMode();
 
-window.setTimeout(() => {
+function refreshMapSize() {
   map.invalidateSize({ pan: false });
-  if (!historyMode) {
+  if (!historyMode && !stationsMode) {
     map.setView(selectedPoint, 10, { animate: false });
     marker.setLatLng(selectedPoint);
   }
-}, 150);
+}
+
+window.setTimeout(refreshMapSize, 150);
+window.setTimeout(refreshMapSize, 900);
+window.addEventListener("resize", refreshMapSize);
+telegram?.onEvent?.("viewportChanged", refreshMapSize);
