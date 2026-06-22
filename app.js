@@ -6,6 +6,7 @@ const DEFAULT_POINT = L.latLng(44.9521, 34.1024);
 const telegram = window.Telegram?.WebApp;
 const urlParams = new URLSearchParams(window.location.search);
 const storageKey = "crimea-fuel-point";
+const BOT_USERNAME = "benz_test_bot";
 const historyMode = urlParams.get("mode") === "history";
 const stationsMode = urlParams.get("mode") === "stations";
 
@@ -57,8 +58,9 @@ const map = L.map("map", {
 });
 
 const tileProviders = [
-  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
   "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+  "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
   "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
 ];
 let activeTileLayer;
@@ -401,9 +403,13 @@ confirmButton.addEventListener("click", () => {
     window.setTimeout(() => telegram.close(), 600);
     return;
   }
-  window.alert(
-    "Точка сохранена на карте. Чтобы передать её боту, откройте карту кнопкой «Вручную на карте» внутри Telegram.",
-  );
+  const startPayload = [
+    "loc",
+    selected.latitude.toFixed(6),
+    selected.longitude.toFixed(6),
+  ].join("_");
+  window.location.href =
+    `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(startPayload)}`;
 });
 
 document.addEventListener("keydown", (event) => {
