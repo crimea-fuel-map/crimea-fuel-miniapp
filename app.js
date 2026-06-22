@@ -59,9 +59,9 @@ const map = L.map("map", {
 
 const tileProviders = [
   "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
   "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
   "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
-  "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
 ];
 let activeTileLayer;
 let tileProviderIndex = 0;
@@ -82,7 +82,7 @@ function loadTileProvider(index) {
   });
   activeTileLayer.on("tileerror", () => {
     tileErrors += 1;
-    if (tileErrors >= 3 && tileProviderIndex + 1 < tileProviders.length) {
+    if (tileErrors >= 1 && tileProviderIndex + 1 < tileProviders.length) {
       loadTileProvider(tileProviderIndex + 1);
     }
   });
@@ -98,7 +98,7 @@ function loadTileProvider(index) {
     ) {
       loadTileProvider(tileProviderIndex + 1);
     }
-  }, 5000);
+  }, 2500);
 }
 
 loadTileProvider(0);
