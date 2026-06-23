@@ -55,53 +55,128 @@ const map = L.map("map", {
   maxBounds: CRIMEA_BOUNDS.pad(0.25),
   zoomControl: true,
   attributionControl: false,
+  preferCanvas: true,
+  fadeAnimation: false,
+  zoomAnimation: false,
+  markerZoomAnimation: false,
+  tap: false,
 });
 
 const tileProviders = [
-  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-  "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
-  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-  "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+  {
+    name: "OSM",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options: { subdomains: "abc" },
+  },
+  {
+    name: "Carto Voyager",
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+    options: { subdomains: "abcd" },
+  },
+  {
+    name: "Esri Streets",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+  },
+  {
+    name: "Carto Light",
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+    options: { subdomains: "abcd" },
+  },
+  {
+    name: "OSM FR",
+    url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
+    options: { subdomains: "abc" },
+  },
 ];
 let activeTileLayer;
 let tileProviderIndex = 0;
 let tileErrors = 0;
+let tileLoads = 0;
+const mapRetry = document.querySelector("#mapRetry");
+
+const SafeTileLayer = L.TileLayer.extend({
+  createTile(coords, done) {
+    const tile = L.TileLayer.prototype.createTile.call(this, coords, done);
+    tile.referrerPolicy = "no-referrer";
+    tile.decoding = "async";
+    tile.loading = "eager";
+    return tile;
+  },
+});
+
+function createTileLayer(provider) {
+  return new SafeTileLayer(provider.url, {
+    bounds: CRIMEA_BOUNDS.pad(0.08),
+    maxZoom: 19,
+    noWrap: true,
+    keepBuffer: 2,
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    detectRetina: false,
+    crossOrigin: false,
+    className: "fuel-map-tile",
+    errorTileUrl:
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='%23e6ecef'/%3E%3Cpath d='M0 64H256M0 128H256M0 192H256M64 0V256M128 0V256M192 0V256' stroke='%23c8d4dc' stroke-width='1' opacity='.45'/%3E%3C/svg%3E",
+    ...(provider.options || {}),
+  });
+}
 
 function loadTileProvider(index) {
   if (activeTileLayer) map.removeLayer(activeTileLayer);
   tileProviderIndex = Math.min(index, tileProviders.length - 1);
   tileErrors = 0;
-  activeTileLayer = L.tileLayer(tileProviders[tileProviderIndex], {
-    bounds: CRIMEA_BOUNDS.pad(0.08),
-    maxZoom: 19,
-    noWrap: true,
-    keepBuffer: 1,
-    updateWhenIdle: true,
-    updateWhenZooming: false,
-    detectRetina: false,
+  tileLoads = 0;
+  mapRetry.hidden = true;
+  document.body.classList.remove("tiles-ready");
+  document.body.classList.add("tiles-loading");
+  const provider = tileProviders[tileProviderIndex];
+  const layer = createTileLayer(provider);
+  activeTileLayer = layer;
+  layer.on("tileload", () => {
+    if (activeTileLayer !== layer) return;
+    tileLoads += 1;
+    document.body.classList.add("tiles-ready");
+    document.body.classList.remove("tiles-loading");
+    mapRetry.hidden = true;
   });
-  activeTileLayer.on("tileerror", () => {
+  layer.on("tileerror", () => {
+    if (activeTileLayer !== layer) return;
     tileErrors += 1;
-    if (tileErrors >= 1 && tileProviderIndex + 1 < tileProviders.length) {
-      loadTileProvider(tileProviderIndex + 1);
-    }
-  });
-  activeTileLayer.on("load", () => {
-    window.clearTimeout(window.__fuelTileFallback);
-  });
-  activeTileLayer.addTo(map);
-  window.clearTimeout(window.__fuelTileFallback);
-  window.__fuelTileFallback = window.setTimeout(() => {
     if (
-      !document.querySelector(".leaflet-tile-loaded") &&
+      tileLoads === 0 &&
+      tileErrors >= 6 &&
       tileProviderIndex + 1 < tileProviders.length
     ) {
       loadTileProvider(tileProviderIndex + 1);
     }
-  }, 2500);
+  });
+  layer.on("load", () => {
+    if (activeTileLayer !== layer) return;
+    window.clearTimeout(window.__fuelTileFallback);
+    if (tileLoads > 0) {
+      document.body.classList.add("tiles-ready");
+      document.body.classList.remove("tiles-loading");
+      mapRetry.hidden = true;
+    }
+  });
+  layer.addTo(map);
+  window.clearTimeout(window.__fuelTileFallback);
+  window.__fuelTileFallback = window.setTimeout(() => {
+    if (activeTileLayer !== layer || tileLoads > 0) return;
+    if (tileProviderIndex + 1 < tileProviders.length) {
+      loadTileProvider(tileProviderIndex + 1);
+    } else {
+      document.body.classList.remove("tiles-loading");
+      mapRetry.hidden = false;
+    }
+  }, 4_000);
 }
 
 loadTileProvider(0);
+mapRetry.addEventListener("click", () => {
+  loadTileProvider(0);
+  map.invalidateSize(true);
+});
 window.setTimeout(() => map.invalidateSize(true), 250);
 window.addEventListener("resize", () => map.invalidateSize(false));
 
@@ -393,6 +468,7 @@ confirmButton.addEventListener("click", () => {
     latitude: Number(selectedPoint.lat.toFixed(7)),
     longitude: Number(selectedPoint.lng.toFixed(7)),
     label: selectedName.slice(0, 120),
+    platform: String(telegram?.platform || "").slice(0, 24),
   };
   window.localStorage.setItem(storageKey, JSON.stringify(selected));
   const payload = JSON.stringify(selected);
