@@ -2,7 +2,19 @@
   const telegram = window.Telegram?.WebApp;
   const isTelegramIos = Boolean(telegram) && /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
   const css = `
-    #map { background: #c9e5ee !important; }
+    #map { background: #c9e5ee !important; position: relative !important; }
+    .runtime-static-map {
+      position: absolute !important;
+      inset: 0 !important;
+      z-index: 260 !important;
+      pointer-events: none !important;
+      background-color: #c9e5ee !important;
+      background-image: var(--runtime-map-svg) !important;
+      background-size: cover !important;
+      background-position: center !important;
+      opacity: .92 !important;
+    }
+    body:not(.telegram-ios-map) .runtime-static-map { opacity: .18 !important; }
     .runtime-fallback-pane { z-index: 350 !important; pointer-events: none !important; }
     .runtime-fallback-map { opacity: .92 !important; }
     body.telegram-ios-map .leaflet-tile-pane { opacity: 0 !important; }
@@ -34,6 +46,19 @@
         <circle cx="478" cy="488" r="7"/><circle cx="259" cy="442" r="7"/><circle cx="532" cy="282" r="7"/>
       </g>
     </svg>`;
+  document.documentElement.style.setProperty(
+    "--runtime-map-svg",
+    `url("data:image/svg+xml;charset=UTF-8,${encodeURIComponent(fallbackSvg)}")`,
+  );
+
+  function ensureStaticFallback() {
+    const mapElement = document.querySelector("#map");
+    if (!mapElement || mapElement.querySelector(".runtime-static-map")) return;
+    const fallback = document.createElement("div");
+    fallback.className = "runtime-static-map";
+    fallback.setAttribute("aria-hidden", "true");
+    mapElement.prepend(fallback);
+  }
 
   function installFallback() {
     const map = window.__fuelMap;
@@ -54,6 +79,7 @@
   }
 
   function refresh() {
+    ensureStaticFallback();
     if (!window.__fuelMap) return;
     installFallback();
     window.__fuelMap.invalidateSize(true);
@@ -79,6 +105,7 @@
     window.setTimeout(() => telegram.close?.(), 1200);
   }, true);
 
+  ensureStaticFallback();
   installFallback();
   window.setTimeout(refresh, 250);
   window.setTimeout(refresh, 900);
