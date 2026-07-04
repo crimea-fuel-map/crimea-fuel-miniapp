@@ -9,6 +9,8 @@ const storageKey = "crimea-fuel-point";
 const BOT_USERNAME = "benz_test_bot";
 const historyMode = urlParams.get("mode") === "history";
 const stationsMode = urlParams.get("mode") === "stations";
+const isTelegramIos = Boolean(telegram) &&
+  /iPhone|iPad|iPod/i.test(navigator.userAgent || "");
 
 function validCrimeaPoint(latitude, longitude) {
   const lat = Number(latitude);
@@ -62,20 +64,53 @@ const map = L.map("map", {
   tap: false,
 });
 
-const tileProviders = [
+const fallbackPane = map.createPane("fallbackMapPane");
+fallbackPane.style.zIndex = isTelegramIos ? "350" : "230";
+fallbackPane.style.pointerEvents = "none";
+fallbackPane.classList.add("leaflet-fallback-map-pane");
+const fallbackMapSvg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820">
+    <rect width="1200" height="820" fill="#b9dfe8"/>
+    <path d="M128 374C191 282 286 224 391 214c137-14 227 25 346 13 139-14 217-69 305-2 71 54 82 153 43 232-47 96-138 130-215 178-97 60-187 91-316 84-142-8-250-50-358-133-94-72-124-144-68-212Z" fill="#f5f0d8" stroke="#87ad80" stroke-width="5"/>
+    <path d="M206 394C322 391 466 383 608 371c142-12 288-40 399-84" fill="none" stroke="#d97357" stroke-width="7" opacity=".7"/>
+    <path d="M297 568C420 520 516 487 638 452c105-30 202-40 322-24" fill="none" stroke="#e08d3c" stroke-width="6" opacity=".72"/>
+    <path d="M452 225C477 316 520 402 574 485c55 85 101 152 135 232" fill="none" stroke="#8c9dab" stroke-width="5" opacity=".65"/>
+    <path d="M175 657C299 633 408 632 522 661" fill="none" stroke="#e6a447" stroke-width="5" opacity=".65"/>
+    <g fill="#1e2b35" font-family="Arial, sans-serif" font-size="28" font-weight="700">
+      <text x="508" y="493">Simferopol</text>
+      <text x="920" y="333">Kerch</text>
+      <text x="791" y="488">Feodosia</text>
+      <text x="609" y="683">Yalta</text>
+      <text x="272" y="638">Sevastopol</text>
+      <text x="282" y="374">Evpatoria</text>
+      <text x="700" y="386">Dzhankoy</text>
+    </g>
+    <g fill="#168c4b" opacity=".75">
+      <circle cx="565" cy="486" r="11"/>
+      <circle cx="970" cy="328" r="10"/>
+      <circle cx="828" cy="485" r="10"/>
+      <circle cx="642" cy="677" r="10"/>
+      <circle cx="326" cy="632" r="10"/>
+      <circle cx="332" cy="370" r="10"/>
+    </g>
+  </svg>`;
+L.imageOverlay(
+  `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(fallbackMapSvg)}`,
+  CRIMEA_BOUNDS,
   {
-    name: "OSM",
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    options: { subdomains: "abc" },
+    pane: "fallbackMapPane",
+    opacity: isTelegramIos ? 0.92 : 1,
+    interactive: false,
+    className: "fallback-map-image",
   },
+).addTo(map);
+document.body.classList.toggle("telegram-ios-map", isTelegramIos);
+
+const tileProviders = [
   {
     name: "Carto Voyager",
     url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
     options: { subdomains: "abcd" },
-  },
-  {
-    name: "Esri Streets",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
   },
   {
     name: "Carto Light",
@@ -83,21 +118,39 @@ const tileProviders = [
     options: { subdomains: "abcd" },
   },
   {
+    name: "Esri Streets",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+  },
+  {
+    name: "OSM",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options: { subdomains: "abc" },
+  },
+  {
+    name: "OSM Direct",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  },
+  {
     name: "OSM FR",
     url: "https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png",
     options: { subdomains: "abc" },
+  },
+  {
+    name: "OSM DE",
+    url: "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
   },
 ];
 let activeTileLayer;
 let tileProviderIndex = 0;
 let tileErrors = 0;
 let tileLoads = 0;
+let tileLayerStartedAt = 0;
 const mapRetry = document.querySelector("#mapRetry");
 
 const SafeTileLayer = L.TileLayer.extend({
   createTile(coords, done) {
     const tile = L.TileLayer.prototype.createTile.call(this, coords, done);
-    tile.referrerPolicy = "no-referrer";
+    tile.referrerPolicy = "strict-origin-when-cross-origin";
     tile.decoding = "async";
     tile.loading = "eager";
     return tile;
@@ -115,8 +168,6 @@ function createTileLayer(provider) {
     detectRetina: false,
     crossOrigin: false,
     className: "fuel-map-tile",
-    errorTileUrl:
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' fill='%23e6ecef'/%3E%3Cpath d='M0 64H256M0 128H256M0 192H256M64 0V256M128 0V256M192 0V256' stroke='%23c8d4dc' stroke-width='1' opacity='.45'/%3E%3C/svg%3E",
     ...(provider.options || {}),
   });
 }
@@ -126,7 +177,9 @@ function loadTileProvider(index) {
   tileProviderIndex = Math.min(index, tileProviders.length - 1);
   tileErrors = 0;
   tileLoads = 0;
+  tileLayerStartedAt = Date.now();
   mapRetry.hidden = true;
+  fallbackPane.style.display = "";
   document.body.classList.remove("tiles-ready");
   document.body.classList.add("tiles-loading");
   const provider = tileProviders[tileProviderIndex];
@@ -135,6 +188,7 @@ function loadTileProvider(index) {
   layer.on("tileload", () => {
     if (activeTileLayer !== layer) return;
     tileLoads += 1;
+    if (!isTelegramIos && tileLoads >= 3) fallbackPane.style.display = "none";
     document.body.classList.add("tiles-ready");
     document.body.classList.remove("tiles-loading");
     mapRetry.hidden = true;
@@ -173,6 +227,14 @@ function loadTileProvider(index) {
 }
 
 loadTileProvider(0);
+window.setInterval(() => {
+  if (!isTelegramIos || !activeTileLayer) return;
+  if (tileLoads > 0 && Date.now() - tileLayerStartedAt > 7_000) {
+    fallbackPane.style.display = "";
+    document.body.classList.add("tiles-ready");
+    document.body.classList.remove("tiles-loading");
+  }
+}, 2_500);
 mapRetry.addEventListener("click", () => {
   loadTileProvider(0);
   map.invalidateSize(true);
@@ -472,11 +534,11 @@ confirmButton.addEventListener("click", () => {
   };
   window.localStorage.setItem(storageKey, JSON.stringify(selected));
   const payload = JSON.stringify(selected);
-  if (telegram?.sendData && telegram.initData) {
+  if (telegram?.sendData) {
     confirmButton.disabled = true;
     confirmButton.lastChild.textContent = " Отправляю...";
     telegram.sendData(payload);
-    window.setTimeout(() => telegram.close(), 600);
+    window.setTimeout(() => telegram.close?.(), 1200);
     return;
   }
   const startPayload = [
@@ -484,8 +546,13 @@ confirmButton.addEventListener("click", () => {
     selected.latitude.toFixed(6),
     selected.longitude.toFixed(6),
   ].join("_");
-  window.location.href =
-    `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(startPayload)}`;
+  const botLink = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(startPayload)}`;
+  if (telegram?.openTelegramLink) {
+    telegram.openTelegramLink(botLink);
+    window.setTimeout(() => telegram.close?.(), 800);
+    return;
+  }
+  window.location.href = botLink;
 });
 
 document.addEventListener("keydown", (event) => {
