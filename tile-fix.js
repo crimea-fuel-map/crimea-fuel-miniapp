@@ -6,18 +6,21 @@
     .runtime-static-map {
       position: absolute !important;
       inset: 0 !important;
-      z-index: 260 !important;
+      z-index: 520 !important;
       pointer-events: none !important;
       background-color: #c9e5ee !important;
       background-image: var(--runtime-map-svg) !important;
-      background-size: cover !important;
+      background-size: 100% 100% !important;
       background-position: center !important;
-      opacity: .92 !important;
+      opacity: 1 !important;
     }
-    body:not(.telegram-ios-map) .runtime-static-map { opacity: .18 !important; }
-    .runtime-fallback-pane { z-index: 350 !important; pointer-events: none !important; }
-    .runtime-fallback-map { opacity: .92 !important; }
-    body.telegram-ios-map .leaflet-tile-pane { opacity: 0 !important; }
+    body:not(.telegram-ios-map) .runtime-static-map { opacity: .12 !important; }
+    .runtime-fallback-pane { z-index: 510 !important; pointer-events: none !important; }
+    .runtime-fallback-map { opacity: 1 !important; }
+    body.telegram-ios-map .leaflet-tile-pane { display: none !important; opacity: 0 !important; visibility: hidden !important; }
+    body.telegram-ios-map .leaflet-overlay-pane { z-index: 500 !important; }
+    .leaflet-marker-pane { z-index: 650 !important; }
+    .leaflet-control-container { z-index: 900 !important; }
     body.telegram-ios-map .runtime-fallback-pane { display: block !important; }
   `;
   const style = document.createElement("style");
@@ -57,7 +60,7 @@
     const fallback = document.createElement("div");
     fallback.className = "runtime-static-map";
     fallback.setAttribute("aria-hidden", "true");
-    mapElement.prepend(fallback);
+    mapElement.appendChild(fallback);
   }
 
   function installFallback() {
@@ -66,13 +69,13 @@
     window.__fuelRuntimeFallbackInstalled = true;
     const pane = map.createPane("runtimeFallbackPane");
     pane.classList.add("runtime-fallback-pane");
-    pane.style.zIndex = "350";
+    pane.style.zIndex = "510";
     pane.style.pointerEvents = "none";
     const bounds = L.latLngBounds(L.latLng(44.35, 32.45), L.latLng(46.25, 36.85));
     L.imageOverlay(
       `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(fallbackSvg)}`,
       bounds,
-      { pane: "runtimeFallbackPane", opacity: isTelegramIos ? 0.92 : 0.2, interactive: false, className: "runtime-fallback-map" },
+      { pane: "runtimeFallbackPane", opacity: isTelegramIos ? 1 : 0.2, interactive: false, className: "runtime-fallback-map" },
     ).addTo(map);
     map.invalidateSize(true);
     return true;
@@ -85,9 +88,15 @@
     window.__fuelMap.invalidateSize(true);
   }
 
+  function openBotWithLocation(point) {
+    const lat = Number(point.lat.toFixed(7));
+    const lon = Number(point.lng.toFixed(7));
+    window.location.href = `https://t.me/benz_test_bot?start=loc_${lat}_${lon}_map`;
+  }
+
   document.addEventListener("click", (event) => {
     const button = event.target?.closest?.("#confirmButton");
-    if (!button || !telegram?.sendData || !window.__fuelMarker) return;
+    if (!button || !window.__fuelMarker) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     const point = window.__fuelMarker.getLatLng();
@@ -101,8 +110,12 @@
     };
     try { window.localStorage.setItem("crimea-fuel-point", JSON.stringify(selected)); } catch {}
     button.disabled = true;
-    telegram.sendData(JSON.stringify(selected));
-    window.setTimeout(() => telegram.close?.(), 1200);
+    if (telegram?.sendData) {
+      telegram.sendData(JSON.stringify(selected));
+      window.setTimeout(() => telegram.close?.(), 1200);
+    } else {
+      openBotWithLocation(point);
+    }
   }, true);
 
   ensureStaticFallback();
