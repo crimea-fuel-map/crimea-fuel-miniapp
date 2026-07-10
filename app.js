@@ -65,7 +65,7 @@ const map = L.map("map", {
 });
 
 const fallbackPane = map.createPane("fallbackMapPane");
-fallbackPane.style.zIndex = isTelegramIos ? "350" : "230";
+fallbackPane.style.zIndex = "100";
 fallbackPane.style.pointerEvents = "none";
 fallbackPane.classList.add("leaflet-fallback-map-pane");
 const fallbackMapSvg = `
@@ -99,7 +99,7 @@ L.imageOverlay(
   CRIMEA_BOUNDS,
   {
     pane: "fallbackMapPane",
-    opacity: isTelegramIos ? 0.92 : 1,
+    opacity: 0.85,
     interactive: false,
     className: "fallback-map-image",
   },
@@ -107,6 +107,10 @@ L.imageOverlay(
 document.body.classList.toggle("telegram-ios-map", isTelegramIos);
 
 const tileProviders = [
+  {
+    name: "OSM Direct",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  },
   {
     name: "Carto Voyager",
     url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
@@ -125,10 +129,6 @@ const tileProviders = [
     name: "OSM",
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     options: { subdomains: "abc" },
-  },
-  {
-    name: "OSM Direct",
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   },
   {
     name: "OSM FR",
@@ -150,7 +150,7 @@ const mapRetry = document.querySelector("#mapRetry");
 const SafeTileLayer = L.TileLayer.extend({
   createTile(coords, done) {
     const tile = L.TileLayer.prototype.createTile.call(this, coords, done);
-    tile.referrerPolicy = "strict-origin-when-cross-origin";
+    tile.referrerPolicy = "no-referrer";
     tile.decoding = "async";
     tile.loading = "eager";
     return tile;
@@ -188,7 +188,7 @@ function loadTileProvider(index) {
   layer.on("tileload", () => {
     if (activeTileLayer !== layer) return;
     tileLoads += 1;
-    if (!isTelegramIos && tileLoads >= 3) fallbackPane.style.display = "none";
+    if (tileLoads >= 1) fallbackPane.style.display = "none";
     document.body.classList.add("tiles-ready");
     document.body.classList.remove("tiles-loading");
     mapRetry.hidden = true;
@@ -227,14 +227,6 @@ function loadTileProvider(index) {
 }
 
 loadTileProvider(0);
-window.setInterval(() => {
-  if (!isTelegramIos || !activeTileLayer) return;
-  if (tileLoads > 0 && Date.now() - tileLayerStartedAt > 7_000) {
-    fallbackPane.style.display = "";
-    document.body.classList.add("tiles-ready");
-    document.body.classList.remove("tiles-loading");
-  }
-}, 2_500);
 mapRetry.addEventListener("click", () => {
   loadTileProvider(0);
   map.invalidateSize(true);
