@@ -33,7 +33,7 @@
   function stabilizeTileFallback() {
     const fallbackPane = document.querySelector(".leaflet-fallback-map-pane");
     if (fallbackPane) {
-      fallbackPane.style.zIndex = "180";
+      fallbackPane.style.zIndex = "100";
       fallbackPane.style.pointerEvents = "none";
     }
 
