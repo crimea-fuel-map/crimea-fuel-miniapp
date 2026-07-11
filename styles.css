@@ -149,10 +149,23 @@ h1 {
   width: 100%;
   height: 100%;
   min-height: 260px;
+  overflow: hidden;
   background:
     linear-gradient(135deg, rgba(63, 154, 197, 0.16) 0 35%, transparent 35%),
     radial-gradient(circle at 48% 52%, #eef4e7 0 18%, #e7f0dc 19% 34%, transparent 35%),
     #d9edf4;
+}
+
+#map::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='900' height='640' viewBox='0 0 900 640' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='900' height='640' fill='%23c9e5ee'/%3E%3Cpath d='M101 267C150 201 224 159 300 151c96-10 165 17 247 8 100-11 155-47 219 1 50 38 61 108 33 167-34 72-101 98-157 133-70 44-137 67-229 62-104-5-181-35-260-95-69-52-93-105-52-160Z' fill='%23f4f2dc' stroke='%239bb98e' stroke-width='3'/%3E%3Cpath d='M220 408C296 379 376 353 447 333c68-19 130-26 204-10' fill='none' stroke='%23e16d50' stroke-width='5' opacity='.75'/%3E%3Cpath d='M188 291C276 291 354 294 456 289c108-6 201-21 289-54' fill='none' stroke='%23e6a447' stroke-width='4' opacity='.65'/%3E%3Cpath d='M342 164C357 226 386 279 422 337c38 61 72 112 96 171' fill='none' stroke='%2395a6b2' stroke-width='3' opacity='.65'/%3E%3Cg fill='%232e3d49' font-family='Arial, sans-serif' font-size='18'%3E%3Ctext x='382' y='360'%3ESimferopol%3C/text%3E%3Ctext x='683' y='252'%3EKerch%3C/text%3E%3Ctext x='584' y='384'%3EFeodosia%3C/text%3E%3Ctext x='451' y='492'%3EYalta%3C/text%3E%3Ctext x='214' y='446'%3ESevastopol%3C/text%3E%3Ctext x='214' y='274'%3EEvpatoria%3C/text%3E%3C/g%3E%3Cg fill='%23168c4b' opacity='.55'%3E%3Ccircle cx='430' cy='355' r='8'/%3E%3Ccircle cx='716' cy='248' r='7'/%3E%3Ccircle cx='607' cy='380' r='7'/%3E%3Ccircle cx='478' cy='488' r='7'/%3E%3Ccircle cx='259' cy='442' r='7'/%3E%3C/g%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 body.tiles-loading #map::after {
@@ -177,13 +190,60 @@ body.tiles-ready #map::after {
 }
 
 .leaflet-container {
-  background: transparent;
+  background: transparent !important;
+}
+
+.leaflet-tile-pane {
+  z-index: 200;
+  background:
+    linear-gradient(135deg, rgba(63, 154, 197, 0.16) 0 35%, transparent 35%),
+    radial-gradient(circle at 48% 52%, #eef4e7 0 18%, #e7f0dc 19% 34%, transparent 35%),
+    #d9edf4;
+  background-image: url("data:image/svg+xml,%3Csvg width='900' height='640' viewBox='0 0 900 640' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='900' height='640' fill='%23c9e5ee'/%3E%3Cpath d='M101 267C150 201 224 159 300 151c96-10 165 17 247 8 100-11 155-47 219 1 50 38 61 108 33 167-34 72-101 98-157 133-70 44-137 67-229 62-104-5-181-35-260-95-69-52-93-105-52-160Z' fill='%23f4f2dc' stroke='%239bb98e' stroke-width='3'/%3E%3Cpath d='M220 408C296 379 376 353 447 333c68-19 130-26 204-10' fill='none' stroke='%23e16d50' stroke-width='5' opacity='.75'/%3E%3Cpath d='M188 291C276 291 354 294 456 289c108-6 201-21 289-54' fill='none' stroke='%23e6a447' stroke-width='4' opacity='.65'/%3E%3Cpath d='M342 164C357 226 386 279 422 337c38 61 72 112 96 171' fill='none' stroke='%2395a6b2' stroke-width='3' opacity='.65'/%3E%3Cg fill='%232e3d49' font-family='Arial, sans-serif' font-size='18'%3E%3Ctext x='382' y='360'%3ESimferopol%3C/text%3E%3Ctext x='683' y='252'%3EKerch%3C/text%3E%3Ctext x='584' y='384'%3EFeodosia%3C/text%3E%3Ctext x='451' y='492'%3EYalta%3C/text%3E%3Ctext x='214' y='446'%3ESevastopol%3C/text%3E%3Ctext x='214' y='274'%3EEvpatoria%3C/text%3E%3C/g%3E%3Cg fill='%23168c4b' opacity='.55'%3E%3Ccircle cx='430' cy='355' r='8'/%3E%3Ccircle cx='716' cy='248' r='7'/%3E%3Ccircle cx='607' cy='380' r='7'/%3E%3Ccircle cx='478' cy='488' r='7'/%3E%3Ccircle cx='259' cy='442' r='7'/%3E%3C/g%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.leaflet-overlay-pane {
+  z-index: 400;
+}
+
+.leaflet-fallback-map-pane {
+  z-index: 100 !important;
+  pointer-events: none !important;
+}
+
+.fallback-map-image {
+  opacity: 1;
+  transition: opacity 160ms ease;
+}
+
+body.tiles-ready:not(.telegram-ios-map) .fallback-map-image {
+  opacity: 0;
+}
+
+body.tiles-ready.telegram-ios-map .fallback-map-image {
+  opacity: 0;
+}
+
+.leaflet-marker-pane {
+  z-index: 600;
+}
+
+.leaflet-control-container {
+  position: relative;
+  z-index: 800;
 }
 
 .leaflet-container img,
 .leaflet-tile {
   max-width: none !important;
   visibility: visible !important;
+}
+
+.fuel-map-tile {
+  mix-blend-mode: normal;
 }
 
 .map-tip {
