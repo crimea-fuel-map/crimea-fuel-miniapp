@@ -526,19 +526,23 @@ confirmButton.addEventListener("click", () => {
   };
   window.localStorage.setItem(storageKey, JSON.stringify(selected));
   const payload = JSON.stringify(selected);
-  if (telegram?.sendData) {
-    confirmButton.disabled = true;
-    confirmButton.lastChild.textContent = " Отправляю...";
-    telegram.sendData(payload);
-    window.setTimeout(() => telegram.close?.(), 1200);
-    return;
-  }
+  const telegramPlatform = String(telegram?.platform || "").toLowerCase();
+  const desktopTelegram = ["tdesktop", "macos", "web", "weba", "webk", "webz"]
+    .some((platform) => telegramPlatform.includes(platform));
   const startPayload = [
     "loc",
     selected.latitude.toFixed(6),
     selected.longitude.toFixed(6),
   ].join("_");
   const botLink = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(startPayload)}`;
+
+  if (telegram?.sendData && !desktopTelegram) {
+    confirmButton.disabled = true;
+    confirmButton.lastChild.textContent = " Отправляю...";
+    telegram.sendData(payload);
+    window.setTimeout(() => telegram.close?.(), 1200);
+    return;
+  }
   if (telegram?.openTelegramLink) {
     telegram.openTelegramLink(botLink);
     window.setTimeout(() => telegram.close?.(), 800);
