@@ -271,11 +271,12 @@ function escapeHtml(value) {
 }
 
 function navigationUrls(point) {
-  const coordinates = `${Number(point.latitude)},${Number(point.longitude)}`;
+  const latitude = Number(point.latitude);
+  const longitude = Number(point.longitude);
   return {
-    yandex: `https://yandex.ru/maps/?pt=${coordinates}&z=16&l=map`,
-    google: `https://www.google.com/maps/search/?api=1&query=${coordinates}`,
-    dgis: `https://2gis.ru/geo/${Number(point.longitude)}%2C${Number(point.latitude)}/16`,
+    yandex: `https://yandex.ru/maps/?pt=${longitude},${latitude}&z=16&l=map`,
+    google: `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`,
+    dgis: `https://2gis.ru/geo/${longitude}%2C${latitude}/16`,
   };
 }
 
