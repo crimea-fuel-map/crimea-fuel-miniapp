@@ -161,6 +161,7 @@ function loadTileProvider(index) {
     } else {
       document.body.classList.remove("tiles-loading");
       mapRetry.hidden = false;
+      window.__showStationList?.();
     }
   }, 4_000);
 }
@@ -269,6 +270,68 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function navigationUrls(point) {
+  const coordinates = `${Number(point.latitude)},${Number(point.longitude)}`;
+  return {
+    yandex: `https://yandex.ru/maps/?pt=${coordinates}&z=16&l=map`,
+    google: `https://www.google.com/maps/search/?api=1&query=${coordinates}`,
+    dgis: `https://2gis.ru/geo/${Number(point.longitude)}%2C${Number(point.latitude)}/16`,
+  };
+}
+
+function createStationList(points, stationMarkers) {
+  const mapWrap = document.querySelector(".map-wrap");
+  const toggle = document.createElement("button");
+  const panel = document.createElement("section");
+  toggle.type = "button";
+  toggle.className = "station-list-toggle";
+  toggle.textContent = `Список АЗС (${points.length})`;
+  panel.className = "station-list-panel";
+  panel.hidden = true;
+  panel.setAttribute("aria-label", "Список найденных АЗС");
+
+  const heading = document.createElement("div");
+  heading.className = "station-list-heading";
+  heading.innerHTML = `<strong>Найденные АЗС</strong><span>${points.length}</span>`;
+  panel.append(heading);
+
+  for (const [index, point] of points.entries()) {
+    const fuels = Array.isArray(point.fuels) ? point.fuels : [];
+    const item = document.createElement("article");
+    item.className = "station-list-item";
+    item.innerHTML = `
+      <button class="station-focus" type="button">
+        <strong>${escapeHtml(point.title || "АЗС")}</strong>
+        <span>${escapeHtml(point.address || "Адрес не указан")}</span>
+        <b>${escapeHtml(fuels.join(", ") || "Топливо не указано")}</b>
+        ${point.actualAt ? `<small>Актуально: ${escapeHtml(point.actualAt)}</small>` : ""}
+      </button>
+      <div class="station-nav" aria-label="Открыть навигацию">
+        <a href="${navigationUrls(point).yandex}" target="_blank" rel="noopener">Яндекс</a>
+        <a href="${navigationUrls(point).google}" target="_blank" rel="noopener">Google</a>
+        <a href="${navigationUrls(point).dgis}" target="_blank" rel="noopener">2ГИС</a>
+      </div>`;
+    item.querySelector(".station-focus").addEventListener("click", () => {
+      panel.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+      const position = L.latLng(point.latitude, point.longitude);
+      map.setView(position, 15, { animate: false });
+      stationMarkers[index]?.openPopup();
+    });
+    panel.append(item);
+  }
+
+  const setOpen = (open) => {
+    panel.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.textContent = open ? "Закрыть список" : `Список АЗС (${points.length})`;
+  };
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.addEventListener("click", () => setOpen(panel.hidden));
+  mapWrap.append(toggle, panel);
+  window.__showStationList = () => setOpen(true);
+}
+
 function initializeStationsMode() {
   if (!stationsMode) return false;
   const points = decodePoints()
@@ -292,6 +355,7 @@ function initializeStationsMode() {
     `НАЙДЕНО АЗС: ${points.length}`;
   map.removeLayer(marker);
   const bounds = [];
+  const stationMarkers = [];
   for (const point of points) {
     const position = L.latLng(point.latitude, point.longitude);
     bounds.push(position);
@@ -313,13 +377,17 @@ function initializeStationsMode() {
         ? `<b>Актуально:</b> ${escapeHtml(point.actualAt)}`
         : "",
     ].filter(Boolean).join("<br>");
-    L.marker(position, { icon }).bindPopup(details).addTo(map);
+    const stationMarker = L.marker(position, { icon })
+      .bindPopup(details)
+      .addTo(map);
+    stationMarkers.push(stationMarker);
   }
   if (bounds.length === 1) map.setView(bounds[0], 14);
   if (bounds.length > 1) map.fitBounds(bounds, { padding: [44, 44] });
   placeLabel.textContent = "Найденные АЗС";
   coordinatesLabel.textContent = `${points.length} точек на карте`;
   mapTip.textContent = "Нажмите на АЗС, чтобы увидеть топливо";
+  createStationList(points, stationMarkers);
   return true;
 }
 
