@@ -68,7 +68,7 @@ document.body.classList.toggle("telegram-ios-map", isTelegramIos);
 
 const tileProviders = [
   {
-    name: "OSM Direct",
+    name: "OpenStreetMap",
     url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   },
   {
@@ -85,85 +85,111 @@ let activeTileLayer;
 let tileProviderIndex = 0;
 let tileErrors = 0;
 let tileLoads = 0;
-let tileLayerStartedAt = 0;
+let blankTileLoads = 0;
+let tileFallbackTimer;
 const mapRetry = document.querySelector("#mapRetry");
 
-const SafeTileLayer = L.TileLayer.extend({
-  createTile(coords, done) {
-    const tile = L.TileLayer.prototype.createTile.call(this, coords, done);
-    tile.referrerPolicy = "no-referrer";
-    tile.decoding = "async";
-    tile.loading = "lazy";
-    return tile;
-  },
-});
-
 function createTileLayer(provider) {
-  return new SafeTileLayer(provider.url, {
-    bounds: CRIMEA_BOUNDS.pad(0.02),
+  return L.tileLayer(provider.url, {
     maxZoom: 19,
     noWrap: true,
-    keepBuffer: 0,
-    updateWhenIdle: true,
+    keepBuffer: 1,
+    updateWhenIdle: false,
     updateWhenZooming: false,
     detectRetina: false,
-    crossOrigin: false,
+    crossOrigin: true,
     className: "fuel-map-tile",
     ...(provider.options || {}),
   });
 }
 
+function setTileState(state) {
+  document.body.classList.toggle("tiles-loading", state === "loading");
+  document.body.classList.toggle("tiles-ready", state === "ready");
+  window.__fuelTileState = {
+    state,
+    provider: tileProviders[tileProviderIndex]?.name || "",
+    loads: tileLoads,
+    errors: tileErrors,
+    blankLoads: blankTileLoads,
+  };
+}
+
+function tileLooksBlank(tile) {
+  if (!tile?.naturalWidth || !tile?.naturalHeight) return true;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 8;
+    canvas.height = 8;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.drawImage(tile, 0, 0, 8, 8);
+    const pixels = context.getImageData(0, 0, 8, 8).data;
+    let visible = 0;
+    let nonWhite = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (pixels[index + 3] > 8) visible += 1;
+      if (
+        pixels[index] < 248 ||
+        pixels[index + 1] < 248 ||
+        pixels[index + 2] < 248
+      ) nonWhite += 1;
+    }
+    return visible < 4 || nonWhite < 2;
+  } catch {
+    return false;
+  }
+}
+
 function loadTileProvider(index) {
+  window.clearTimeout(tileFallbackTimer);
   if (activeTileLayer) map.removeLayer(activeTileLayer);
   tileProviderIndex = Math.min(index, tileProviders.length - 1);
   tileErrors = 0;
   tileLoads = 0;
-  tileLayerStartedAt = Date.now();
+  blankTileLoads = 0;
   mapRetry.hidden = true;
-  document.body.classList.remove("tiles-ready");
-  document.body.classList.add("tiles-loading");
+  setTileState("loading");
   const provider = tileProviders[tileProviderIndex];
   const layer = createTileLayer(provider);
   activeTileLayer = layer;
-  layer.on("tileload", () => {
+  layer.on("tileload", (event) => {
     if (activeTileLayer !== layer) return;
+    if (tileLooksBlank(event.tile)) {
+      blankTileLoads += 1;
+      setTileState("loading");
+      if (blankTileLoads >= 3) tryNextTileProvider(layer);
+      return;
+    }
     tileLoads += 1;
-    document.body.classList.add("tiles-ready");
-    document.body.classList.remove("tiles-loading");
+    setTileState("ready");
     mapRetry.hidden = true;
+    window.clearTimeout(tileFallbackTimer);
   });
   layer.on("tileerror", () => {
     if (activeTileLayer !== layer) return;
     tileErrors += 1;
-    if (
-      tileLoads === 0 &&
-      tileErrors >= 6 &&
-      tileProviderIndex + 1 < tileProviders.length
-    ) {
-      loadTileProvider(tileProviderIndex + 1);
-    }
-  });
-  layer.on("load", () => {
-    if (activeTileLayer !== layer) return;
-    window.clearTimeout(window.__fuelTileFallback);
-    if (tileLoads > 0) {
-      document.body.classList.add("tiles-ready");
-      document.body.classList.remove("tiles-loading");
-      mapRetry.hidden = true;
+    setTileState(tileLoads > 0 ? "ready" : "loading");
+    if (tileLoads === 0 && tileErrors >= 3) {
+      tryNextTileProvider(layer);
     }
   });
   layer.addTo(map);
-  window.clearTimeout(window.__fuelTileFallback);
-  window.__fuelTileFallback = window.setTimeout(() => {
+  tileFallbackTimer = window.setTimeout(() => {
     if (activeTileLayer !== layer || tileLoads > 0) return;
-    if (tileProviderIndex + 1 < tileProviders.length) {
-      loadTileProvider(tileProviderIndex + 1);
-    } else {
-      document.body.classList.remove("tiles-loading");
-      mapRetry.hidden = false;
-      window.__showStationList?.();
-    }
-  }, 4_000);
+    tryNextTileProvider(layer);
+  }, 4_500);
+}
+
+function tryNextTileProvider(layer) {
+  if (activeTileLayer !== layer || tileLoads > 0) return;
+  if (tileProviderIndex + 1 < tileProviders.length) {
+    loadTileProvider(tileProviderIndex + 1);
+    return;
+  }
+  window.clearTimeout(tileFallbackTimer);
+  setTileState("failed");
+  mapRetry.hidden = false;
+  window.__showStationList?.();
 }
 
 loadTileProvider(0);
@@ -404,7 +430,9 @@ function setPoint(point, name = "Выбранная точка", moveMap = true)
   selectedPoint = L.latLng(point.lat, point.lng);
   selectedName = name;
   marker.setLatLng(selectedPoint);
-  if (moveMap) map.flyTo(selectedPoint, Math.max(map.getZoom(), 13));
+  if (moveMap) map.setView(selectedPoint, Math.max(map.getZoom(), 13), {
+    animate: false,
+  });
   placeLabel.textContent = selectedName;
   coordinatesLabel.textContent =
     `${selectedPoint.lat.toFixed(6)}, ${selectedPoint.lng.toFixed(6)}`;
@@ -541,19 +569,19 @@ confirmButton.addEventListener("click", () => {
   ].join("_");
   const botLink = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(startPayload)}`;
 
+  confirmButton.disabled = true;
+  confirmButton.lastChild.textContent = " Сохраняю...";
   if (telegram?.sendData) {
-    confirmButton.disabled = true;
-    confirmButton.lastChild.textContent = " Отправляю...";
-    telegram.sendData(payload);
-    window.setTimeout(() => telegram.close?.(), 1200);
-    return;
+    try {
+      telegram.sendData(payload);
+      window.setTimeout(() => telegram.close?.(), 700);
+      return;
+    } catch {
+      // Fall back to the bot deep link outside a supported Telegram Mini App.
+    }
   }
-  if (telegram?.openTelegramLink) {
-    telegram.openTelegramLink(botLink);
-    window.setTimeout(() => telegram.close?.(), 800);
-    return;
-  }
-  window.location.href = botLink;
+  if (telegram?.openTelegramLink) telegram.openTelegramLink(botLink);
+  else window.location.href = botLink;
 });
 
 document.addEventListener("keydown", (event) => {
@@ -565,10 +593,6 @@ initializeStationsMode();
 
 function refreshMapSize() {
   map.invalidateSize({ pan: false });
-  if (!historyMode && !stationsMode) {
-    map.setView(selectedPoint, 10, { animate: false });
-    marker.setLatLng(selectedPoint);
-  }
 }
 
 window.setTimeout(refreshMapSize, 150);
