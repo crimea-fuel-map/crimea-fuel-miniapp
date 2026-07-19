@@ -150,7 +150,7 @@ h1 {
   height: 100%;
   min-height: 260px;
   overflow: hidden;
-  background: #eef2f4;
+  background: #c9e7ee;
 }
 
 #map::before {
@@ -158,10 +158,10 @@ h1 {
 }
 
 body.tiles-loading #map::after {
-  content: "Загружаем карту…";
+  content: "Р—Р°РіСЂСѓР¶Р°РµРј РїРѕРґСЂРѕР±РЅСѓСЋ РєР°СЂС‚СѓвЂ¦";
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 52px;
   z-index: 420;
   padding: 8px 12px;
   transform: translate(-50%, -50%);
@@ -179,12 +179,32 @@ body.tiles-ready #map::after {
 }
 
 .leaflet-container {
-  background: #eef2f4 !important;
+  background: #c9e7ee !important;
 }
 
 .leaflet-tile-pane {
   z-index: 200;
-  background: #eef2f4;
+  background: transparent;
+}
+
+.leaflet-localBasemap-pane {
+  background: #c9e7ee;
+}
+
+.local-city-label {
+  background: transparent;
+  border: 0;
+  color: #263841;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+  white-space: nowrap;
+}
+
+body.tiles-ready .leaflet-localBasemap-pane {
+  opacity: 0;
 }
 
 .leaflet-overlay-pane {
@@ -207,6 +227,10 @@ body.tiles-ready #map::after {
 }
 
 .fuel-map-tile {
+  opacity: 1 !important;
+  visibility: visible !important;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   mix-blend-mode: normal;
 }
 
@@ -605,3 +629,4 @@ body.stations-mode .actionbar {
     width: 100%;
   }
 }
+
