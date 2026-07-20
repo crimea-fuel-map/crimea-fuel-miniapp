@@ -1,3 +1,4 @@
+
 const CRIMEA_BOUNDS = L.latLngBounds(
   L.latLng(44.35, 32.45),
   L.latLng(46.25, 36.85),
@@ -161,7 +162,7 @@ function createTileLayer(provider) {
     maxZoom: 19,
     noWrap: true,
     keepBuffer: 2,
-    updateWhenIdle: true,
+    updateWhenIdle: false,
     updateWhenZooming: false,
     detectRetina: false,
     className: "fuel-map-tile",
@@ -211,7 +212,7 @@ function loadTileProvider(index) {
   tileFallbackTimer = window.setTimeout(() => {
     if (activeTileLayer !== layer || tileLoads > 0) return;
     tryNextTileProvider(layer);
-  }, 3_000);
+  }, 6_000);
 }
 
 function tryNextTileProvider(layer) {
@@ -624,13 +625,10 @@ initializeHistoryMode();
 initializeStationsMode();
 
 function refreshMapSize() {
-  const center = map.getCenter();
-  const zoom = map.getZoom();
-  map.invalidateSize({ pan: false, debounceMoveend: true });
-  map.setView(center, zoom, { animate: false, reset: true });
+  map.invalidateSize({ pan: false, animate: false, debounceMoveend: true });
 }
 
-for (const delay of [0, 80, 200, 500, 1000, 2000, 3500]) {
+for (const delay of [0, 150, 500, 1200]) {
   window.setTimeout(refreshMapSize, delay);
 }
 window.addEventListener("resize", refreshMapSize);
@@ -647,3 +645,4 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 telegram?.onEvent?.("viewportChanged", refreshMapSize);
+
