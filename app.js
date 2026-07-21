@@ -40,13 +40,14 @@ const INITIAL_POINT = hasRequestedPoint
   ? requestedPoint
   : (hasSavedPoint ? savedPoint : DEFAULT_POINT);
 const INITIAL_NAME = hasRequestedPoint
-  ? (urlParams.get("label") || "Последняя выбранная точка").slice(0, 80)
+  ? (urlParams.get("label") || "РџРѕСЃР»РµРґРЅСЏСЏ РІС‹Р±СЂР°РЅРЅР°СЏ С‚РѕС‡РєР°").slice(0, 80)
   : (hasSavedPoint
-    ? String(storedPoint.label || "Последняя выбранная точка").slice(0, 80)
-    : "Симферополь");
+    ? String(storedPoint.label || "РџРѕСЃР»РµРґРЅСЏСЏ РІС‹Р±СЂР°РЅРЅР°СЏ С‚РѕС‡РєР°").slice(0, 80)
+    : "РЎРёРјС„РµСЂРѕРїРѕР»СЊ");
 
 telegram?.ready();
 telegram?.expand();
+telegram?.disableVerticalSwipes?.();
 L.Browser.any3d = false;
 
 const map = L.map("map", {
@@ -64,8 +65,8 @@ const map = L.map("map", {
   zoomSnap: 0.25,
   zoomDelta: 0.5,
   wheelPxPerZoomLevel: 90,
-  touchZoom: "center",
-  scrollWheelZoom: "center",
+  touchZoom: true,
+  scrollWheelZoom: true,
   inertia: false,
   bounceAtZoomLimits: false,
   worldCopyJump: false,
@@ -98,14 +99,14 @@ const localRoads = [
 ];
 
 const localCities = [
-  [44.9521, 34.1024, "Симферополь"],
-  [44.6167, 33.5254, "Севастополь"],
-  [44.4952, 34.1663, "Ялта"],
-  [45.1904, 33.3669, "Евпатория"],
-  [45.3561, 36.4674, "Керчь"],
-  [45.0319, 35.3824, "Феодосия"],
-  [45.7086, 34.3933, "Джанкой"],
-  [44.6764, 34.4100, "Алушта"],
+  [44.9521, 34.1024, "РЎРёРјС„РµСЂРѕРїРѕР»СЊ"],
+  [44.6167, 33.5254, "РЎРµРІР°СЃС‚РѕРїРѕР»СЊ"],
+  [44.4952, 34.1663, "РЇР»С‚Р°"],
+  [45.1904, 33.3669, "Р•РІРїР°С‚РѕСЂРёСЏ"],
+  [45.3561, 36.4674, "РљРµСЂС‡СЊ"],
+  [45.0319, 35.3824, "Р¤РµРѕРґРѕСЃРёСЏ"],
+  [45.7086, 34.3933, "Р”Р¶Р°РЅРєРѕР№"],
+  [44.6764, 34.4100, "РђР»СѓС€С‚Р°"],
 ];
 
 L.polygon(crimeaOutline, {
@@ -303,9 +304,9 @@ function initializeHistoryMode() {
   if (!historyMode) return false;
 
   document.body.classList.add("history-mode");
-  document.querySelector("h1").textContent = "История геопозиций";
+  document.querySelector("h1").textContent = "РСЃС‚РѕСЂРёСЏ РіРµРѕРїРѕР·РёС†РёР№";
   document.querySelector(".eyebrow").textContent =
-    `СОХРАНЕНО ТОЧЕК: ${points.length}`;
+    `РЎРћРҐР РђРќР•РќРћ РўРћР§Р•Рљ: ${points.length}`;
   map.removeLayer(marker);
   const bounds = [];
   for (const [index, point] of points.entries()) {
@@ -319,16 +320,16 @@ function initializeHistoryMode() {
     });
     const date = point.updatedAt
       ? new Date(point.updatedAt).toLocaleString("ru-RU")
-      : "Время неизвестно";
+      : "Р’СЂРµРјСЏ РЅРµРёР·РІРµСЃС‚РЅРѕ";
     L.marker(position, { icon })
-      .bindPopup(`<strong>Точка ${index + 1}</strong><br>${date}`)
+      .bindPopup(`<strong>РўРѕС‡РєР° ${index + 1}</strong><br>${date}`)
       .addTo(map);
   }
   if (bounds.length === 1) map.setView(bounds[0], 13, { animate: false });
   if (bounds.length > 1) map.fitBounds(bounds, { padding: [36, 36], animate: false });
-  placeLabel.textContent = "Все геопозиции";
-  coordinatesLabel.textContent = `${points.length} точек на карте`;
-  mapTip.textContent = "Нажмите на метку, чтобы увидеть дату";
+  placeLabel.textContent = "Р’СЃРµ РіРµРѕРїРѕР·РёС†РёРё";
+  coordinatesLabel.textContent = `${points.length} С‚РѕС‡РµРє РЅР° РєР°СЂС‚Рµ`;
+  mapTip.textContent = "РќР°Р¶РјРёС‚Рµ РЅР° РјРµС‚РєСѓ, С‡С‚РѕР±С‹ СѓРІРёРґРµС‚СЊ РґР°С‚Сѓ";
   return true;
 }
 
@@ -357,14 +358,14 @@ function createStationList(points, stationMarkers) {
   const panel = document.createElement("section");
   toggle.type = "button";
   toggle.className = "station-list-toggle";
-  toggle.textContent = `Список АЗС (${points.length})`;
+  toggle.textContent = `РЎРїРёСЃРѕРє РђР—РЎ (${points.length})`;
   panel.className = "station-list-panel";
   panel.hidden = true;
-  panel.setAttribute("aria-label", "Список найденных АЗС");
+  panel.setAttribute("aria-label", "РЎРїРёСЃРѕРє РЅР°Р№РґРµРЅРЅС‹С… РђР—РЎ");
 
   const heading = document.createElement("div");
   heading.className = "station-list-heading";
-  heading.innerHTML = `<strong>Найденные АЗС</strong><span>${points.length}</span>`;
+  heading.innerHTML = `<strong>РќР°Р№РґРµРЅРЅС‹Рµ РђР—РЎ</strong><span>${points.length}</span>`;
   panel.append(heading);
 
   for (const [index, point] of points.entries()) {
@@ -373,15 +374,15 @@ function createStationList(points, stationMarkers) {
     item.className = "station-list-item";
     item.innerHTML = `
       <button class="station-focus" type="button">
-        <strong>${escapeHtml(point.title || "АЗС")}</strong>
-        <span>${escapeHtml(point.address || "Адрес не указан")}</span>
-        <b>${escapeHtml(fuels.join(", ") || "Топливо не указано")}</b>
-        ${point.actualAt ? `<small>Актуально: ${escapeHtml(point.actualAt)}</small>` : ""}
+        <strong>${escapeHtml(point.title || "РђР—РЎ")}</strong>
+        <span>${escapeHtml(point.address || "РђРґСЂРµСЃ РЅРµ СѓРєР°Р·Р°РЅ")}</span>
+        <b>${escapeHtml(fuels.join(", ") || "РўРѕРїР»РёРІРѕ РЅРµ СѓРєР°Р·Р°РЅРѕ")}</b>
+        ${point.actualAt ? `<small>РђРєС‚СѓР°Р»СЊРЅРѕ: ${escapeHtml(point.actualAt)}</small>` : ""}
       </button>
-      <div class="station-nav" aria-label="Открыть навигацию">
-        <a href="${navigationUrls(point).yandex}" target="_blank" rel="noopener">Яндекс</a>
+      <div class="station-nav" aria-label="РћС‚РєСЂС‹С‚СЊ РЅР°РІРёРіР°С†РёСЋ">
+        <a href="${navigationUrls(point).yandex}" target="_blank" rel="noopener">РЇРЅРґРµРєСЃ</a>
         <a href="${navigationUrls(point).google}" target="_blank" rel="noopener">Google</a>
-        <a href="${navigationUrls(point).dgis}" target="_blank" rel="noopener">2ГИС</a>
+        <a href="${navigationUrls(point).dgis}" target="_blank" rel="noopener">2Р“РРЎ</a>
       </div>`;
     item.querySelector(".station-focus").addEventListener("click", () => {
       panel.hidden = true;
@@ -396,7 +397,7 @@ function createStationList(points, stationMarkers) {
   const setOpen = (open) => {
     panel.hidden = !open;
     toggle.setAttribute("aria-expanded", String(open));
-    toggle.textContent = open ? "Закрыть список" : `Список АЗС (${points.length})`;
+    toggle.textContent = open ? "Р—Р°РєСЂС‹С‚СЊ СЃРїРёСЃРѕРє" : `РЎРїРёСЃРѕРє РђР—РЎ (${points.length})`;
   };
   toggle.setAttribute("aria-expanded", "false");
   toggle.addEventListener("click", () => setOpen(panel.hidden));
@@ -424,9 +425,9 @@ function initializeStationsMode() {
     Number.isFinite(Number(point.longitude))
   );
   document.body.classList.add("stations-mode");
-  document.querySelector("h1").textContent = "АЗС с топливом";
+  document.querySelector("h1").textContent = "РђР—РЎ СЃ С‚РѕРїР»РёРІРѕРј";
   document.querySelector(".eyebrow").textContent =
-    `НАЙДЕНО АЗС: ${points.length}`;
+    `РќРђР™Р”Р•РќРћ РђР—РЎ: ${points.length}`;
   map.removeLayer(marker);
   const bounds = [];
   const stationMarkers = [];
@@ -435,25 +436,25 @@ function initializeStationsMode() {
     bounds.push(position);
     const fuels = Array.isArray(point.fuels) ? point.fuels : [];
     const markerLabel = fuels
-      .map((fuel) => String(fuel).replace("АИ-", ""))
-      .join(" · ");
+      .map((fuel) => String(fuel).replace("РђР-", ""))
+      .join(" В· ");
     const icon = L.divIcon({
       className: "",
-      html: `<div class="fuel-marker">${escapeHtml(markerLabel || "АЗС")}</div>`,
+      html: `<div class="fuel-marker">${escapeHtml(markerLabel || "РђР—РЎ")}</div>`,
       iconSize: [86, 34],
       iconAnchor: [43, 17],
     });
     const details = [
-      `<strong>${escapeHtml(point.title || "АЗС")}</strong>`,
+      `<strong>${escapeHtml(point.title || "РђР—РЎ")}</strong>`,
       escapeHtml(point.address || ""),
-      `<b>Топливо:</b> ${escapeHtml(fuels.join(", "))}`,
+      `<b>РўРѕРїР»РёРІРѕ:</b> ${escapeHtml(fuels.join(", "))}`,
       point.actualAt
-        ? `<b>Актуально:</b> ${escapeHtml(point.actualAt)}`
+        ? `<b>РђРєС‚СѓР°Р»СЊРЅРѕ:</b> ${escapeHtml(point.actualAt)}`
         : "",
       point.distanceKm !== undefined && point.distanceKm !== null
-        ? `<b>Расстояние:</b> ${escapeHtml(String(point.distanceKm))} км`
+        ? `<b>Р Р°СЃСЃС‚РѕСЏРЅРёРµ:</b> ${escapeHtml(String(point.distanceKm))} РєРј`
         : "",
-      point.source ? `<b>Источник:</b> ${escapeHtml(point.source)}` : "",
+      point.source ? `<b>РСЃС‚РѕС‡РЅРёРє:</b> ${escapeHtml(point.source)}` : "",
     ].filter(Boolean).join("<br>");
     const stationMarker = L.marker(position, { icon })
       .bindPopup(details)
@@ -463,9 +464,9 @@ function initializeStationsMode() {
   if (bounds.length === 1) map.setView(bounds[0], 14, { animate: false });
   if (bounds.length > 1) map.fitBounds(bounds, { padding: [44, 44], animate: false });
   setTimeout(() => map.invalidateSize({ pan: false }), 80);
-  placeLabel.textContent = "Найденные АЗС";
-  coordinatesLabel.textContent = `${points.length} точек на карте`;
-  mapTip.textContent = "Нажмите на АЗС, чтобы увидеть топливо";
+  placeLabel.textContent = "РќР°Р№РґРµРЅРЅС‹Рµ РђР—РЎ";
+  coordinatesLabel.textContent = `${points.length} С‚РѕС‡РµРє РЅР° РєР°СЂС‚Рµ`;
+  mapTip.textContent = "РќР°Р¶РјРёС‚Рµ РЅР° РђР—РЎ, С‡С‚РѕР±С‹ СѓРІРёРґРµС‚СЊ С‚РѕРїР»РёРІРѕ";
   createStationList(points, stationMarkers);
   return true;
 }
@@ -474,9 +475,9 @@ function withinCrimea(point) {
   return CRIMEA_BOUNDS.contains(point);
 }
 
-function setPoint(point, name = "Выбранная точка", moveMap = true) {
+function setPoint(point, name = "Р’С‹Р±СЂР°РЅРЅР°СЏ С‚РѕС‡РєР°", moveMap = true) {
   if (!withinCrimea(point)) {
-    telegram?.showAlert("Выберите точку в пределах Крыма.");
+    telegram?.showAlert("Р’С‹Р±РµСЂРёС‚Рµ С‚РѕС‡РєСѓ РІ РїСЂРµРґРµР»Р°С… РљСЂС‹РјР°.");
     return false;
   }
   selectedPoint = L.latLng(point.lat, point.lng);
@@ -488,9 +489,9 @@ function setPoint(point, name = "Выбранная точка", moveMap = true)
   placeLabel.textContent = selectedName;
   coordinatesLabel.textContent =
     `${selectedPoint.lat.toFixed(6)}, ${selectedPoint.lng.toFixed(6)}`;
-  mapTip.textContent = "Точка выбрана";
+  mapTip.textContent = "РўРѕС‡РєР° РІС‹Р±СЂР°РЅР°";
   window.setTimeout(() => {
-    mapTip.textContent = "Нажмите на карту или перетащите метку";
+    mapTip.textContent = "РќР°Р¶РјРёС‚Рµ РЅР° РєР°СЂС‚Сѓ РёР»Рё РїРµСЂРµС‚Р°С‰РёС‚Рµ РјРµС‚РєСѓ";
   }, 1600);
   return true;
 }
@@ -504,7 +505,7 @@ map.on("click", (event) => {
 marker.on("dragend", () => {
   if (historyMode || stationsMode) return;
   const point = marker.getLatLng();
-  if (!setPoint(point, "Выбранная точка", false)) {
+  if (!setPoint(point, "Р’С‹Р±СЂР°РЅРЅР°СЏ С‚РѕС‡РєР°", false)) {
     marker.setLatLng(selectedPoint);
   }
 });
@@ -521,7 +522,7 @@ function renderResults(items) {
     empty.type = "button";
     empty.className = "result-button";
     empty.disabled = true;
-    empty.textContent = "Ничего не найдено";
+    empty.textContent = "РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ";
     searchResults.append(empty);
   } else {
     for (const item of items) {
@@ -546,7 +547,7 @@ function renderResults(items) {
 
 async function searchPlaces(query) {
   const params = new URLSearchParams({
-    q: `${query}, Крым`,
+    q: `${query}, РљСЂС‹Рј`,
     format: "jsonv2",
     addressdetails: "1",
     limit: "6",
@@ -584,7 +585,7 @@ clearSearch.addEventListener("click", () => {
 
 locateButton.addEventListener("click", () => {
   if (!navigator.geolocation) {
-    telegram?.showAlert("Определение геопозиции недоступно.");
+    telegram?.showAlert("РћРїСЂРµРґРµР»РµРЅРёРµ РіРµРѕРїРѕР·РёС†РёРё РЅРµРґРѕСЃС‚СѓРїРЅРѕ.");
     return;
   }
   locateButton.disabled = true;
@@ -593,12 +594,12 @@ locateButton.addEventListener("click", () => {
       locateButton.disabled = false;
       setPoint(
         L.latLng(position.coords.latitude, position.coords.longitude),
-        "Моё местоположение",
+        "РњРѕС‘ РјРµСЃС‚РѕРїРѕР»РѕР¶РµРЅРёРµ",
       );
     },
     () => {
       locateButton.disabled = false;
-      telegram?.showAlert("Не удалось определить геопозицию.");
+      telegram?.showAlert("РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РіРµРѕРїРѕР·РёС†РёСЋ.");
     },
     { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 },
   );
@@ -622,7 +623,7 @@ confirmButton.addEventListener("click", () => {
   const botLink = `https://t.me/${BOT_USERNAME}?start=${encodeURIComponent(startPayload)}`;
 
   confirmButton.disabled = true;
-  confirmButton.lastChild.textContent = " Сохраняю...";
+  confirmButton.lastChild.textContent = " РЎРѕС…СЂР°РЅСЏСЋ...";
   if (telegram?.sendData) {
     try {
       telegram.sendData(payload);
