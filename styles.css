@@ -1,4 +1,3 @@
-
 :root {
   color-scheme: light;
   --bg: #f5f7f9;
@@ -23,9 +22,26 @@ body {
   min-height: 100dvh;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app-shell,
+.map-wrap,
+#map,
+.leaflet-container {
+  overscroll-behavior: none;
+}
+
+#map,
+.leaflet-container {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button,
@@ -159,7 +175,7 @@ h1 {
 }
 
 body.tiles-loading #map::after {
-  content: "Загружаем подробную карту…";
+  content: "Р—Р°РіСЂСѓР¶Р°РµРј РїРѕРґСЂРѕР±РЅСѓСЋ РєР°СЂС‚СѓвЂ¦";
   position: absolute;
   left: 50%;
   top: 52px;
